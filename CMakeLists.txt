@@ -19,6 +19,10 @@ link_directories(
 )
 
 add_executable(bms
+	parser.cpp
+	parser.h
+	string_utils.cpp
+	string_utils.h
 	main.cpp
 )
 

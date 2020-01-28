@@ -2,6 +2,10 @@
 
 #include <iostream>
 
+#include "parser.h"
+#include <memory>
+#include <string>
+
 const int WIDTH=640, HEIGHT= 480;
 SDL_Window* window;
 SDL_Renderer* renderer;
@@ -28,6 +32,11 @@ auto main(int argc, char* argv[]) -> int
 		return EXIT_FAILURE;
 	}
 	
+	std::shared_ptr<Map> map = std::make_shared<Map>();
+	std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_abs07_00_bmssp7e.bme";
+	if(!load(input, map)) {
+	}
+	
 
 	while(true) {
 		SDL_Event event;
@@ -41,10 +50,12 @@ auto main(int argc, char* argv[]) -> int
 		if(do_quit) {
 			break;
 		}
+		
 	
 	}
 	
 
+	map.reset();
 	SDL_Quit();
 	
 	SDL_DestroyWindow(window);

@@ -81,3 +81,17 @@ while(SDL_PollEvent(&event)) {
 if(do_quit) {
 	break;
 }
+
+@includes+=
+#include "parser.h"
+#include <memory>
+#include <string>
+
+@read_beatmap=
+std::shared_ptr<Map> map = std::make_shared<Map>();
+std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_abs07_00_bmssp7e.bme";
+if(!load(input, map)) {
+}
+
+@release_beatmap=
+map.reset();
