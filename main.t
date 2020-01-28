@@ -2,6 +2,8 @@
 @includes
 @global_variables
 
+@play_finish_callback
+
 auto main(int argc, char* argv[]) -> int
 {
 	@init_sdl
@@ -98,7 +100,7 @@ if(do_quit) {
 
 @read_beatmap=
 std::shared_ptr<Map> m = std::make_shared<Map>();
-std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_abs07_00_bmssp7e.bme";
+std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_ms_abs07_01.bme";
 if(!load(input, m)) {
 	return EXIT_FAILURE;
 }
@@ -195,15 +197,12 @@ unsigned next;
 @init_time=
 t = 0.f;
 next = 0;
-auto t_m1 = std::chrono::high_resolution_clock::now();
+auto t0 = std::chrono::high_resolution_clock::now();
 
 @move_frame=
-auto t_0 = std::chrono::high_resolution_clock::now();
-std::chrono::duration<double> elapsed = t_0 - t_m1;
-t_m1 = t_0;
-float dt = (float)elapsed.count();
-
-t += dt;
+auto tn = std::chrono::high_resolution_clock::now();
+std::chrono::duration<double> elapsed = tn - t0;
+t = (float)elapsed.count();
 
 @move_frame+=
 unsigned before = next;
@@ -211,11 +210,41 @@ for(;next < m->notes.size() && m->notes[next].time < t; ++next)
 {
 }
 
+@global_variables+=
+std::array<bool, (26+10)*(26+10)> playing;
+std::array<int, (26+10)*(26+10)> channel_to_wav;
+std::array<int, (26+10)*(26+10)> wav_to_channel;
+
+@init_audio+=
+for(bool& p : playing) { p = false; }
+
+@play_finish_callback=
+auto finish_playing(int channel) -> void 
+{
+	playing[channel_to_wav[channel]] = false;
+}
+
+@init_audio+=
+Mix_ChannelFinished(finish_playing);
+
 @move_frame+=
 if(before != next) {
 	for(;before < next; ++before) {
 		int wav_i = m->notes[before].wav;
-		Mix_PlayChannel(-1, samples[wav_i], 0);
+
+		if(playing[wav_i]) {
+			Mix_HaltChannel(wav_to_channel[wav_i]);
+		}
+
+		playing[wav_i] = true;
+		int channel = Mix_PlayChannel(-1, samples[wav_i], 0);
+		if(channel == -1) {
+			std::cerr << "note drop" << std::endl;
+			continue;
+		}
+
+		wav_to_channel[wav_i] = channel;
+		channel_to_wav[channel] = wav_i;
 	}
 }
 
@@ -225,3 +254,6 @@ SDL_RenderClear(renderer);
 
 @flip_frame=
 SDL_RenderPresent(renderer);
+
+@init_audio+=
+Mix_AllocateChannels(32);

@@ -23,6 +23,16 @@ std::array<Mix_Chunk*, (26+10)*(26+10)> samples;
 float t;
 unsigned next;
 
+std::array<bool, (26+10)*(26+10)> playing;
+std::array<int, (26+10)*(26+10)> channel_to_wav;
+std::array<int, (26+10)*(26+10)> wav_to_channel;
+
+
+auto finish_playing(int channel) -> void 
+{
+	playing[channel_to_wav[channel]] = false;
+}
+
 
 auto main(int argc, char* argv[]) -> int
 {
@@ -57,8 +67,13 @@ auto main(int argc, char* argv[]) -> int
 		return EXIT_FAILURE;
 	}
 	
+	for(bool& p : playing) { p = false; }
+	
+	Mix_ChannelFinished(finish_playing);
+	
+	Mix_AllocateChannels(32);
 	std::shared_ptr<Map> m = std::make_shared<Map>();
-	std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_abs07_00_bmssp7e.bme";
+	std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_ms_abs07_01.bme";
 	if(!load(input, m)) {
 		return EXIT_FAILURE;
 	}
@@ -95,7 +110,7 @@ auto main(int argc, char* argv[]) -> int
 	
 	t = 0.f;
 	next = 0;
-	auto t_m1 = std::chrono::high_resolution_clock::now();
+	auto t0 = std::chrono::high_resolution_clock::now();
 	
 
 	while(true) {
@@ -112,12 +127,9 @@ auto main(int argc, char* argv[]) -> int
 		}
 		
 	
-		auto t_0 = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> elapsed = t_0 - t_m1;
-		t_m1 = t_0;
-		float dt = (float)elapsed.count();
-		
-		t += dt;
+		auto tn = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> elapsed = tn - t0;
+		t = (float)elapsed.count();
 		
 		unsigned before = next;
 		for(;next < m->notes.size() && m->notes[next].time < t; ++next)
@@ -127,7 +139,20 @@ auto main(int argc, char* argv[]) -> int
 		if(before != next) {
 			for(;before < next; ++before) {
 				int wav_i = m->notes[before].wav;
-				Mix_PlayChannel(-1, samples[wav_i], 0);
+		
+				if(playing[wav_i]) {
+					Mix_HaltChannel(wav_to_channel[wav_i]);
+				}
+		
+				playing[wav_i] = true;
+				int channel = Mix_PlayChannel(-1, samples[wav_i], 0);
+				if(channel == -1) {
+					std::cerr << "note drop" << std::endl;
+					continue;
+				}
+		
+				wav_to_channel[wav_i] = channel;
+				channel_to_wav[channel] = wav_i;
 			}
 		}
 		
@@ -136,6 +161,7 @@ auto main(int argc, char* argv[]) -> int
 		SDL_RenderClear(renderer);
 		
 		SDL_RenderPresent(renderer);
+		
 	}
 	
 
