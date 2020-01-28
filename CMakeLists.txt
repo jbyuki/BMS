@@ -23,6 +23,8 @@ add_executable(bms
 	parser.h
 	string_utils.cpp
 	string_utils.h
+	file_utils.cpp
+	file_utils.h
 	main.cpp
 )
 

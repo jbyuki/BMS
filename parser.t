@@ -36,6 +36,7 @@ auto load(const std::string& filename, std::shared_ptr<Map> m) -> bool
 	@open_file
 	@read_line_by_line
 	@output_read_data
+	@sort_notes
 
 	return true;
 }
@@ -58,6 +59,7 @@ while(std::getline(in, line)) {
 	@extract_command_name
 	@process_headers
 	@process_messages
+	@skip_other_commands
 }
 
 @skip_comment_line=
@@ -194,25 +196,73 @@ else if(command.substr(0, 3) == "bmp") {
 }
 
 @map_data+=
-struct Message
+struct Note
 {
-	unsigned track;
-	unsigned channel;
-	std::string message;
+	float time;
+	unsigned col; // if col == 0, BGM
+	unsigned wav;
 };
-std::vector<Message> messages;
+
+std::vector<Note> notes;
 
 @process_messages=
-else {
-	std::istringstream parse_num(line.substr(1, 3) + " " + line.substr(4, 2));
-
-	Map::Message msg;
-	parse_num >> msg.track;
-	parse_num >> std::hex >> msg.channel;
-
-	msg.message = line.substr(7);
-	m->messages.push_back(msg);
+else if(command[0] >= '0' && command[0] <= '9') {
+	@parse_message
+	@save_if_note
 }
 
+@parse_message=
+float measure;
+std::istringstream parse_num(line.substr(1, 3));
+parse_num >> measure;
+
+std::string channel = line.substr(4, 2);
+std::string message = line.substr(7);
+
+@save_if_note=
+@compute_measure_division
+@traverse_message_and_create_notes
+
+@compute_measure_division=
+float div = 1.f/((float)message.size()/2.f);
+float to_time = 1.f/((float)m->bpm / 60.f/4.f) ; // divide by 4 because one measure is 2 beats
+
+@traverse_message_and_create_notes=
+for(unsigned i=0; i<message.size(); i+=2) {
+	Map::Note note;
+	note.time = (measure + ((float)i/2.f)*div)*to_time;
+
+	@get_note_wav
+	@get_note_column
+
+	m->notes.push_back(note);
+}
+
+@get_note_wav=
+if(message[i] == '0' && message[i+1] == '0') {
+	continue;
+}
+note.wav = zz_tonum({message[i], message[i+1]});
+
+@get_note_column=
+if(channel[0] == '0' && channel[1] == '1') { // BGM
+	note.col = 0;
+} else if(channel[0] == '1') {
+	note.col = (unsigned)(channel[1] - '0');
+} else {
+	continue; // otherwise unknown channel, skip
+}
+
+@sort_notes=
+std::sort(m->notes.begin(), m->notes.end(), 
+	[](const Map::Note& n1, const Map::Note& n2) {
+		return n1.time < n2.time;
+});
+
 @output_read_data+=
-std::cout << "Number of messages: " << m->messages.size() << std::endl;
+std::cout << "Number of notes: " << m->notes.size() << std::endl;
+
+@skip_other_commands=
+else {
+	std::cerr << "WARNING(load): Unknown command " << line << std::endl;
+}

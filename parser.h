@@ -37,13 +37,14 @@ struct Map
 	std::array<std::string, (10+26)*(10+26)> bmp; // bmp file name, 01 - ZZ
 	// #BMP00 is shown when the player plays poorly
 	
-	struct Message
+	struct Note
 	{
-		unsigned track;
-		unsigned channel;
-		std::string message;
+		float time;
+		unsigned col; // if col == 0, BGM
+		unsigned wav;
 	};
-	std::vector<Message> messages;
+	
+	std::vector<Note> notes;
 	
 };
 
