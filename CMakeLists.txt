@@ -22,20 +22,20 @@ link_directories(
 )
 
 add_executable(bms
-	parser.cpp
-	parser.h
-	string_utils.cpp
-	string_utils.h
-	file_utils.cpp
-	file_utils.h
-	texture_utils.cpp
-	texture_utils.h
-	skin.cpp
-	skin.h
-	vec2.h
-	font_utils.cpp
-	font_utils.h
-	main.cpp
+	src/parser.cpp
+	src/parser.h
+	src/string_utils.cpp
+	src/string_utils.h
+	src/file_utils.cpp
+	src/file_utils.h
+	src/texture_utils.cpp
+	src/texture_utils.h
+	src/skin.cpp
+	src/skin.h
+	src/vec2.h
+	src/font_utils.cpp
+	src/font_utils.h
+	src/main.cpp
 )
 
 target_link_libraries(bms SDL2main SDL2 SDL2_image SDL2_mixer SDL2_ttf)
