@@ -18,6 +18,8 @@ Please download the "Runtime binairies on [libsdl.org](https://www.libsdl.org/do
 Please also download the "Runtime binairies on [libsdl.org/projects/SDL\_image](https://www.libsdl.org/projects/SDL_image/)
 * SDL2-mixer-2.0.4
 Same [libsdl.org/projects/SDL\_mixer](https://www.libsdl.org/projects/SDL_mixer/)
+* SDL2-ttf-2.0.15
+Same again [libsdl.org/projects/SDL\_ttf](https://www.libsdl.org/projects/SDL_ttf/)
 
 It is all you will need. Please also have a test BMS file to run the program.
 
@@ -37,6 +39,9 @@ BMS\
 		include\
 		lib\
 	SDL2_mixer-2.0.4\
+		include\
+		lib\
+	SDL2_ttf-2.0.15\
 		include\
 		lib\
 	SDL2-2.0.10\
@@ -63,6 +68,8 @@ cmake ..
 std::string input = "YOUR BMS FILE PATH HERE".
 ...
 if(!loadSkin"skin/skin.txt PATH HERE", renderer, s)) {
+...
+TTF_Font* font = TTF_OpenFont("FONT FILE PATH HERE", 16);
 ```
 One skin is included in the project.
 

@@ -21,3 +21,4 @@ Vec2(const T& x = (T)0, const T& y = (T)0) :
 
 @type_aliases=
 using Vec2f = Vec2<float>;
+using Vec2i = Vec2<int>;

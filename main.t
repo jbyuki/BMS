@@ -12,10 +12,12 @@ auto main(int argc, char* argv[]) -> int
 	@read_beatmap
 	@load_all_audio
 	@load_skin
+	@load_text
 	@init_time
 
 	@game_loop
 
+	@unload_text
 	@unload_skin
 	@unload_all_audio
 	@release_beatmap
@@ -71,9 +73,11 @@ SDL_DestroyRenderer(renderer);
 
 @game_loop=
 while(true) {
+	@init_keypress_states
 	@handle_events
 
 	@move_frame
+	@handle_logic
 
 	@clear_frame
 	@draw_frame
@@ -84,8 +88,15 @@ while(true) {
 SDL_Event event;
 bool do_quit = false;
 while(SDL_PollEvent(&event)) {
-	if(event.type == SDL_QUIT) {
+	switch(event.type) {
+	case SDL_KEYDOWN: {
+		@handle_keydown
+		break; }
+	case SDL_QUIT:
 		do_quit = true;
+		break;
+	default:
+		break;
 	}
 }
 
@@ -189,25 +200,43 @@ for(unsigned i=0; i<samples.size(); ++i) {
 
 @global_variables+=
 float t;
-unsigned next;
+std::vector<Map::Note> next, miss, bgm, toplay;
 
 @includes+=
 #include <chrono>
 
 @init_time=
 t = 0.f;
-next = 0;
 auto t0 = std::chrono::high_resolution_clock::now();
+
+for(auto it=m->notes.rbegin(); it!=m->notes.rend(); ++it) {
+	if(it->col == 0) {
+		bgm.push_back(*it);
+	} else {
+		next.push_back(*it);
+	}
+}
 
 @move_frame=
 auto tn = std::chrono::high_resolution_clock::now();
 std::chrono::duration<double> elapsed = tn - t0;
 t = (float)elapsed.count();
 
+@global_variables+=
+const float BAD_WINDOW = 0.15f;
+
 @move_frame+=
-unsigned before = next;
-for(;next < m->notes.size() && m->notes[next].time < t; ++next)
+while(next.size() > 0 && next.back().time + BAD_WINDOW < t)
 {
+	miss.push_back(next.back());
+	next.pop_back();
+}
+
+@move_frame+=
+while(bgm.size() > 0 && bgm.back().time < t)
+{
+	toplay.push_back(bgm.back());
+	bgm.pop_back();
 }
 
 @global_variables+=
@@ -228,25 +257,25 @@ auto finishPlaying(int channel) -> void
 Mix_ChannelFinished(finishPlaying);
 
 @move_frame+=
-if(before != next) {
-	for(;before < next; ++before) {
-		int wav_i = m->notes[before].wav;
-
-		if(playing[wav_i]) {
-			Mix_HaltChannel(wav_to_channel[wav_i]);
-		}
-
-		playing[wav_i] = true;
-		int channel = Mix_PlayChannel(-1, samples[wav_i], 0);
-		if(channel == -1) {
-			std::cerr << "note drop" << std::endl;
-			continue;
-		}
-
-		wav_to_channel[wav_i] = channel;
-		channel_to_wav[channel] = wav_i;
-	}
+for(auto& note : toplay) {
+	@play_note_sample
 }
+toplay.clear();
+
+@play_note_sample=
+if(playing[note.wav]) {
+	Mix_HaltChannel(wav_to_channel[note.wav]);
+}
+
+playing[note.wav] = true;
+int channel = Mix_PlayChannel(-1, samples[note.wav], 0);
+if(channel == -1) {
+	std::cerr << "note drop" << std::endl;
+	continue;
+}
+
+wav_to_channel[note.wav] = channel;
+channel_to_wav[channel] = note.wav;
 
 @clear_frame=
 SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
@@ -288,18 +317,11 @@ s.reset();
 float scroll_speed = 1.f; // screen/second
 
 @draw_frame=
-for(unsigned i=next; i<m->notes.size(); ++i) {
-	auto& note = m->notes[i];
-
-	@skip_if_bgm_note
+for(auto it=next.rbegin(); it!=next.rend(); ++it) {
+	auto& note = *it;
 	@compute_note_position_on_screen
-	@skip_if_outside_screen
+	@break_if_outside_screen
 	@otherwise_draw_note
-}
-
-@skip_if_bgm_note=
-if(note.col == 0) {
-	continue;
 }
 
 @includes+=
@@ -310,15 +332,168 @@ Vec2f pos;
 pos.x = (float)note.col * 30.f + 100.f;
 pos.y = (float)HEIGHT - ((note.time - t)*scroll_speed*(float)HEIGHT);
 
-@skip_if_outside_screen=
+@break_if_outside_screen=
 if(pos.y < 0.f) {
-	continue;
+	break;
 }
 
 @otherwise_draw_note=
 SDL_Rect dst;
-dst.x = (int)(pos.x+0.5f);
-dst.y = (int)(pos.y+0.5f);
 dst.w = 30;
-dst.h = 15;
+dst.h = 16;
+dst.x = (int)(pos.x+0.5f);
+dst.y = (int)(pos.y+0.5f) - dst.h/2;
 SDL_RenderCopy(renderer, s->note, nullptr, &dst);
+
+@global_variables+=
+enum PLAYER_CONTROL
+{
+	P1_SCRATCH = 0,
+	P1_COL1,
+	P1_COL2,
+	P1_COL3,
+	P1_COL4,
+	P1_COL5,
+	P1_COL6,
+	P1_COL7,
+
+	PLAYER_CONTROL_NUM,
+};
+
+@includes+=
+#include <unordered_map>
+
+@global_variables+=
+std::unordered_map<SDL_Keycode, PLAYER_CONTROL> keymapping {
+	{ SDLK_a, P1_SCRATCH },
+	{ SDLK_s, P1_COL1 },
+	{ SDLK_d, P1_COL2 },
+	{ SDLK_f, P1_COL3 },
+	{ SDLK_SPACE, P1_COL4 },
+	{ SDLK_h, P1_COL5 },
+	{ SDLK_j, P1_COL6 },
+	{ SDLK_k, P1_COL7 }
+};
+
+@init_keypress_states=
+std::array<bool, PLAYER_CONTROL_NUM> keys;
+keys.fill(false);
+
+@handle_keydown=
+auto kit = keymapping.find(event.key.keysym.sym);
+if(kit != keymapping.end()) {
+	keys[kit->second] = true;
+}
+
+@handle_logic=
+for(unsigned k=0; k<keys.size(); ++k) {
+	if(keys[k]) {
+		@pick_closest_note_or_skip_if_too_far
+		@remove_note_from_next
+		@play_note_sample
+		@judge_note
+	}
+}
+
+@includes+=
+#include <cmath>
+
+@pick_closest_note_or_skip_if_too_far=
+int found = -1;
+for(int i=(int)next.size()-1; i>=0 && next[i].time <= t+BAD_WINDOW; --i) {
+	if(next[i].col == k+1 && 
+	   (found == -1 || std::abs(next[i].time-t) < std::abs(next[found].time-t))) {
+		found = i;
+	}
+}
+if(found == -1) {
+	continue;
+}
+
+@remove_note_from_next=
+auto note = next[found];
+next.erase(next.begin()+found);
+
+@global_variables+=
+int perfect_count = 0;
+int great_count = 0;
+int good_count = 0;
+int bad_count = 0;
+int poor_count = 0;
+
+const float PERFECT_WINDOW = 0.02f;
+const float GREAT_WINDOW = 0.04f;
+const float GOOD_WINDOW = 0.105f;
+
+@judge_note=
+float dt = std::abs(note.time-t);
+if(dt <= PERFECT_WINDOW) { perfect_count++; }
+else if(dt <= GREAT_WINDOW) { great_count++; }
+else if(dt <= GOOD_WINDOW) { good_count++; }
+else if(dt <= BAD_WINDOW) { bad_count++; }
+else { poor_count++; }
+
+@includes+=
+#include <SDL_ttf.h>
+
+@init_sdl+=
+if(TTF_Init() == -1) {
+	std::cerr << "ERROR(TTF_Init): " << TTF_GetError() << std::endl;
+	return EXIT_FAILURE;
+}
+
+@quit_sdl+=
+TTF_Quit();
+
+@load_text=
+TTF_Font* font = TTF_OpenFont("C:\\data\\font\\NotoSansJP-Regular.otf", 16);
+if(!font) {
+	std::cerr << "ERROR(TTF_OpenFont): " << TTF_GetError() << std::endl;
+	return EXIT_FAILURE;
+}
+
+@unload_text=
+TTF_CloseFont(font);
+
+@includes+=
+#include "font_utils.h"
+#include "texture_utils.h"
+
+@global_variables+=
+std::array<std::shared_ptr<Texture>, 10> numbers;
+
+@load_text+=
+for(int c=0; c<=9; ++c) {
+	numbers[c] = renderText(std::to_string(c), font, renderer);
+}
+
+@load_text+=
+auto perfect_text = renderText("PERFECT:", font, renderer);
+auto great_text   = renderText("GREAT:", font, renderer);
+auto good_text    = renderText("GOOD:", font, renderer);
+auto bad_text     = renderText("BAD:", font, renderer);
+auto poor_text    = renderText("POOR:", font, renderer);
+
+@global_variables+=
+Vec2i ui_pos(450, 10);
+
+@draw_frame+=
+{
+Vec2i p = ui_pos;
+drawTexture(renderer, p, perfect_text); p.y += perfect_text->h;
+drawTexture(renderer, p, great_text); p.y += great_text->h;
+drawTexture(renderer, p, good_text); p.y += good_text->h;
+drawTexture(renderer, p, bad_text); p.y += bad_text->h;
+drawTexture(renderer, p, poor_text); /* p.y += poor_text->h; */
+}
+
+@draw_frame+=
+{
+Vec2i p = ui_pos;
+p.x += 100;
+writeNumber(p, perfect_count, numbers, renderer); p.y += perfect_text->h;
+writeNumber(p, great_count, numbers, renderer); p.y += great_text->h;
+writeNumber(p, good_count, numbers, renderer); p.y += good_text->h;
+writeNumber(p, bad_count, numbers, renderer); p.y += bad_text->h;
+writeNumber(p, (int)miss.size() + poor_count, numbers, renderer); /* p.y += poor_text->h;*/
+}

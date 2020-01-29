@@ -13,4 +13,5 @@ struct Vec2
 };
 
 using Vec2f = Vec2<float>;
+using Vec2i = Vec2<int>;
 
