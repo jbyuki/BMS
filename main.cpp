@@ -14,6 +14,12 @@
 
 #include <chrono>
 
+#include <SDL_image.h>
+
+#include "skin.h"
+
+#include "vec2.h"
+
 const int WIDTH=640, HEIGHT= 480;
 SDL_Window* window;
 SDL_Renderer* renderer;
@@ -27,8 +33,10 @@ std::array<bool, (26+10)*(26+10)> playing;
 std::array<int, (26+10)*(26+10)> channel_to_wav;
 std::array<int, (26+10)*(26+10)> wav_to_channel;
 
+float scroll_speed = 1.f; // screen/second
 
-auto finish_playing(int channel) -> void 
+
+auto finishPlaying(int channel) -> void 
 {
 	playing[channel_to_wav[channel]] = false;
 }
@@ -43,6 +51,13 @@ auto main(int argc, char* argv[]) -> int
 	if((initted&flags) != flags) {
 		std::cerr << "ERROR(Mix_Init): " << Mix_GetError() << std::endl;
 		return EXIT_FAILURE;
+	}
+	
+	flags = IMG_INIT_JPG | IMG_INIT_PNG;
+	initted = IMG_Init(flags);
+	if((initted&flags) != flags) {
+		std::cerr << "ERROR(IMG_Init): " << IMG_GetError() << std::endl;
+		return false;
 	}
 	
 	window = SDL_CreateWindow("BMS Player v0.1",
@@ -69,11 +84,12 @@ auto main(int argc, char* argv[]) -> int
 	
 	for(bool& p : playing) { p = false; }
 	
-	Mix_ChannelFinished(finish_playing);
+	Mix_ChannelFinished(finishPlaying);
 	
 	Mix_AllocateChannels(32);
+	
 	std::shared_ptr<Map> m = std::make_shared<Map>();
-	std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_ms_abs07_01.bme";
+	std::string input = "C:\\data\\BMSSP2009\\Lapis - SHIKI\\lapis7key.bme";
 	if(!load(input, m)) {
 		return EXIT_FAILURE;
 	}
@@ -106,6 +122,11 @@ auto main(int argc, char* argv[]) -> int
 			}
 			
 		}
+	}
+	
+	std::shared_ptr<Skin> s = std::make_shared<Skin>();
+	if(!loadSkin("C:\\data\\skin\\skin.txt", renderer, s)) {
+		return EXIT_FAILURE;
 	}
 	
 	t = 0.f;
@@ -160,11 +181,36 @@ auto main(int argc, char* argv[]) -> int
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 		SDL_RenderClear(renderer);
 		
+		for(unsigned i=next; i<m->notes.size(); ++i) {
+			auto& note = m->notes[i];
+		
+			if(note.col == 0) {
+				continue;
+			}
+			
+			Vec2f pos;
+			pos.x = (float)note.col * 30.f + 100.f;
+			pos.y = (float)HEIGHT - ((note.time - t)*scroll_speed*(float)HEIGHT);
+			
+			if(pos.y < 0.f) {
+				continue;
+			}
+			
+			SDL_Rect dst;
+			dst.x = (int)(pos.x+0.5f);
+			dst.y = (int)(pos.y+0.5f);
+			dst.w = 30;
+			dst.h = 15;
+			SDL_RenderCopy(renderer, s->note, nullptr, &dst);
+		}
+		
 		SDL_RenderPresent(renderer);
 		
 	}
 	
 
+	s.reset();
+	
 	for(unsigned i=0; i<samples.size(); ++i) {
 		if(samples[i]) {
 			Mix_FreeChunk(samples[i]);
@@ -185,6 +231,8 @@ auto main(int argc, char* argv[]) -> int
 	while(Mix_Init(0)) {
 		Mix_Quit();
 	}
+	
+	IMG_Quit();
 	
 
 	return 0;

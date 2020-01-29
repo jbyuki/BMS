@@ -100,7 +100,7 @@ if(do_quit) {
 
 @read_beatmap=
 std::shared_ptr<Map> m = std::make_shared<Map>();
-std::string input = "C:\\Users\\i354324\\OneDrive - SAP SE\\Documents\\BMS Songs\\BMSSP2009\\Absurd Gaff - siromaru\\_ms_abs07_01.bme";
+std::string input = "C:\\data\\BMSSP2009\\Lapis - SHIKI\\lapis7key.bme";
 if(!load(input, m)) {
 	return EXIT_FAILURE;
 }
@@ -219,13 +219,13 @@ std::array<int, (26+10)*(26+10)> wav_to_channel;
 for(bool& p : playing) { p = false; }
 
 @play_finish_callback=
-auto finish_playing(int channel) -> void 
+auto finishPlaying(int channel) -> void 
 {
 	playing[channel_to_wav[channel]] = false;
 }
 
 @init_audio+=
-Mix_ChannelFinished(finish_playing);
+Mix_ChannelFinished(finishPlaying);
 
 @move_frame+=
 if(before != next) {
@@ -257,3 +257,68 @@ SDL_RenderPresent(renderer);
 
 @init_audio+=
 Mix_AllocateChannels(32);
+
+@includes+=
+#include <SDL_image.h>
+
+@init_sdl+=
+flags = IMG_INIT_JPG | IMG_INIT_PNG;
+initted = IMG_Init(flags);
+if((initted&flags) != flags) {
+	std::cerr << "ERROR(IMG_Init): " << IMG_GetError() << std::endl;
+	return false;
+}
+
+@quit_sdl+=
+IMG_Quit();
+
+@includes+=
+#include "skin.h"
+
+@load_skin=
+std::shared_ptr<Skin> s = std::make_shared<Skin>();
+if(!loadSkin("C:\\data\\skin\\skin.txt", renderer, s)) {
+	return EXIT_FAILURE;
+}
+
+@unload_skin=
+s.reset();
+
+@global_variables+=
+float scroll_speed = 1.f; // screen/second
+
+@draw_frame=
+for(unsigned i=next; i<m->notes.size(); ++i) {
+	auto& note = m->notes[i];
+
+	@skip_if_bgm_note
+	@compute_note_position_on_screen
+	@skip_if_outside_screen
+	@otherwise_draw_note
+}
+
+@skip_if_bgm_note=
+if(note.col == 0) {
+	continue;
+}
+
+@includes+=
+#include "vec2.h"
+
+@compute_note_position_on_screen=
+Vec2f pos;
+pos.x = (float)note.col * 30.f + 100.f;
+pos.y = (float)HEIGHT - ((note.time - t)*scroll_speed*(float)HEIGHT);
+
+@skip_if_outside_screen=
+if(pos.y < 0.f) {
+	continue;
+}
+
+@otherwise_draw_note=
+SDL_Rect dst;
+dst.x = (int)(pos.x+0.5f);
+dst.y = (int)(pos.y+0.5f);
+dst.w = 30;
+dst.h = 15;
+SDL_RenderCopy(renderer, s->note, nullptr, &dst);

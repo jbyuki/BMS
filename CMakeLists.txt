@@ -25,6 +25,9 @@ add_executable(bms
 	string_utils.h
 	file_utils.cpp
 	file_utils.h
+	skin.cpp
+	skin.h
+	vec2.h
 	main.cpp
 )
 

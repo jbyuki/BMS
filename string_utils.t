@@ -41,3 +41,15 @@ auto zz_tonum(const std::array<char, 2>& a) -> unsigned
 	}
 	return result;
 }
+
+@functions+=
+auto trim(const std::string& s) -> std::string;
+
+@define_functions+=
+auto trim(const std::string& s) -> std::string
+{
+	unsigned i1 = 0, i2 = s.size();
+	for(; i1<s.size() && std::isspace(s[i1]); ++i1);
+	for(; i2>i1 && std::isspace(s[i2-1]); --i2);
+	return s.substr(i1, i2-i1);
+}
