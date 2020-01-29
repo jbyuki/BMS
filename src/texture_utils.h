@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <SDL_image.h>
+#include <iostream>
 
 #include "vec2.h"
 

@@ -5,7 +5,6 @@
 struct Skin
 {
 	@skin_data
-	@skin_destructor
 };
 
 @functions
@@ -74,27 +73,40 @@ std::string fn = same_directory_as(right, filename);
 @includes+=
 #include <SDL_image.h>
 #include <iostream>
+#include "texture_utils.h"
 
 @skin_data=
-SDL_Texture* note = nullptr;
+std::shared_ptr<Texture> note = nullptr;
 
 @read_line=
-if(left == "note") {
-	if((s->note = IMG_LoadTexture(renderer, fn.c_str())) == nullptr) {
-		std::cerr << "ERROR(loadSkin): Could not load " << fn << std::endl;
-	}
-}
+if(left == "note") { s->note = loadTexture(renderer, fn); } 
 
-@skin_destructor=
-~Skin();
+@skin_data+=
+std::shared_ptr<Texture> hit = nullptr;
 
-@define_functions+=
-Skin::~Skin()
-{
-	@skin_destroy_texture
-}
+@read_line+=
+if(left == "hit") { s->hit = loadTexture(renderer, fn); }
 
-@skin_destroy_texture=
-if(note) {
-	SDL_DestroyTexture(note);
-}
+@skin_data+=
+std::shared_ptr<Texture> scratch = nullptr;
+
+@read_line+=
+if(left == "scratch") { s->scratch = loadTexture(renderer, fn); }
+
+@skin_data+=
+std::shared_ptr<Texture> hit_scratch = nullptr;
+
+@read_line+=
+if(left == "hit-scratch") { s->hit_scratch = loadTexture(renderer, fn); }
+
+@skin_data+=
+std::shared_ptr<Texture> note_odd = nullptr;
+
+@read_line+=
+if(left == "note-odd") { s->note_odd = loadTexture(renderer, fn); }
+
+@skin_data+=
+std::shared_ptr<Texture> judgment = nullptr;
+
+@read_line+=
+if(left == "judgment") { s->judgment = loadTexture(renderer, fn); }

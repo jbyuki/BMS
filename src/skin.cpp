@@ -25,23 +25,21 @@ auto loadSkin(const std::string& filename, SDL_Renderer* renderer, std::shared_p
 		std::string right = trim(line.substr(p+1));
 		std::string fn = same_directory_as(right, filename);
 		
-		if(left == "note") {
-			if((s->note = IMG_LoadTexture(renderer, fn.c_str())) == nullptr) {
-				std::cerr << "ERROR(loadSkin): Could not load " << fn << std::endl;
-			}
-		}
+		if(left == "note") { s->note = loadTexture(renderer, fn); } 
 		
+		if(left == "hit") { s->hit = loadTexture(renderer, fn); }
+		
+		if(left == "scratch") { s->scratch = loadTexture(renderer, fn); }
+		
+		if(left == "hit-scratch") { s->hit_scratch = loadTexture(renderer, fn); }
+		
+		if(left == "note-odd") { s->note_odd = loadTexture(renderer, fn); }
+		
+		if(left == "judgment") { s->judgment = loadTexture(renderer, fn); }
 	}
 	
 
 	return true;
-}
-
-Skin::~Skin()
-{
-	if(note) {
-		SDL_DestroyTexture(note);
-	}
 }
 
 

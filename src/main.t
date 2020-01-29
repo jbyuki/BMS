@@ -92,6 +92,9 @@ while(SDL_PollEvent(&event)) {
 	case SDL_KEYDOWN: {
 		@handle_keydown
 		break; }
+	case SDL_KEYUP: {
+		@handle_keyup
+		break; }
 	case SDL_QUIT:
 		do_quit = true;
 		break;
@@ -111,7 +114,7 @@ if(do_quit) {
 
 @read_beatmap=
 std::shared_ptr<Map> m = std::make_shared<Map>();
-std::string input = "C:\\data\\BMSSP2009\\Lapis - SHIKI\\lapis7key.bme";
+std::string input = "C:\\data\\BMSSP2009\\Absurd Gaff - siromaru\\_abs07_00_bmssp7e.bme";
 if(!load(input, m)) {
 	return EXIT_FAILURE;
 }
@@ -317,6 +320,12 @@ s.reset();
 float scroll_speed = 1.f; // screen/second
 
 @draw_frame=
+@draw_background
+@draw_notes
+@draw_judgment_line
+@draw_ui
+
+@draw_notes=
 for(auto it=next.rbegin(); it!=next.rend(); ++it) {
 	auto& note = *it;
 	@compute_note_position_on_screen
@@ -327,10 +336,14 @@ for(auto it=next.rbegin(); it!=next.rend(); ++it) {
 @includes+=
 #include "vec2.h"
 
+@global_variables+=
+int PLAY_AREA = 100;
+int JUDGMENT_OFFSET = 50;
+
 @compute_note_position_on_screen=
-Vec2f pos;
-pos.x = (float)note.col * 30.f + 100.f;
-pos.y = (float)HEIGHT - ((note.time - t)*scroll_speed*(float)HEIGHT);
+Vec2i pos;
+pos.x = note.col == 1 ? PLAY_AREA : (note.col-2)*s->note->w + s->scratch->w + PLAY_AREA;
+pos.y = (int)((float)HEIGHT - ((note.time - t)*scroll_speed*(float)HEIGHT) + 0.5f) - s->note->h/2 - JUDGMENT_OFFSET;
 
 @break_if_outside_screen=
 if(pos.y < 0.f) {
@@ -338,12 +351,7 @@ if(pos.y < 0.f) {
 }
 
 @otherwise_draw_note=
-SDL_Rect dst;
-dst.w = 30;
-dst.h = 16;
-dst.x = (int)(pos.x+0.5f);
-dst.y = (int)(pos.y+0.5f) - dst.h/2;
-SDL_RenderCopy(renderer, s->note, nullptr, &dst);
+drawTexture(renderer, pos, note.col == 1 ? s->scratch : ((note.col&1) == 0 ? s->note_odd : s->note));
 
 @global_variables+=
 enum PLAYER_CONTROL
@@ -370,9 +378,9 @@ std::unordered_map<SDL_Keycode, PLAYER_CONTROL> keymapping {
 	{ SDLK_d, P1_COL2 },
 	{ SDLK_f, P1_COL3 },
 	{ SDLK_SPACE, P1_COL4 },
-	{ SDLK_h, P1_COL5 },
-	{ SDLK_j, P1_COL6 },
-	{ SDLK_k, P1_COL7 }
+	{ SDLK_j, P1_COL5 },
+	{ SDLK_k, P1_COL6 },
+	{ SDLK_l, P1_COL7 }
 };
 
 @init_keypress_states=
@@ -446,7 +454,7 @@ if(TTF_Init() == -1) {
 TTF_Quit();
 
 @load_text=
-TTF_Font* font = TTF_OpenFont("C:\\data\\font\\NotoSansJP-Regular.otf", 16);
+TTF_Font* font = TTF_OpenFont("C:\\data\\font\\NotoSansJP-Regular.otf", 14);
 if(!font) {
 	std::cerr << "ERROR(TTF_OpenFont): " << TTF_GetError() << std::endl;
 	return EXIT_FAILURE;
@@ -467,6 +475,9 @@ for(int c=0; c<=9; ++c) {
 	numbers[c] = renderText(std::to_string(c), font, renderer);
 }
 
+@unload_text+=
+numbers.fill(nullptr);
+
 @load_text+=
 auto perfect_text = renderText("PERFECT:", font, renderer);
 auto great_text   = renderText("GREAT:", font, renderer);
@@ -474,10 +485,17 @@ auto good_text    = renderText("GOOD:", font, renderer);
 auto bad_text     = renderText("BAD:", font, renderer);
 auto poor_text    = renderText("POOR:", font, renderer);
 
+@unload_text+=
+perfect_text.reset();
+great_text.reset();
+good_text.reset();
+bad_text.reset();
+poor_text.reset();
+
 @global_variables+=
 Vec2i ui_pos(450, 10);
 
-@draw_frame+=
+@draw_ui=
 {
 Vec2i p = ui_pos;
 drawTexture(renderer, p, perfect_text); p.y += perfect_text->h;
@@ -487,7 +505,7 @@ drawTexture(renderer, p, bad_text); p.y += bad_text->h;
 drawTexture(renderer, p, poor_text); /* p.y += poor_text->h; */
 }
 
-@draw_frame+=
+@draw_ui+=
 {
 Vec2i p = ui_pos;
 p.x += 100;
@@ -496,4 +514,47 @@ writeNumber(p, great_count, numbers, renderer); p.y += great_text->h;
 writeNumber(p, good_count, numbers, renderer); p.y += good_text->h;
 writeNumber(p, bad_count, numbers, renderer); p.y += bad_text->h;
 writeNumber(p, (int)miss.size() + poor_count, numbers, renderer); /* p.y += poor_text->h;*/
+}
+
+@global_variables+=
+std::array<bool, PLAYER_CONTROL_NUM> key_pressed;
+
+@init_time+=
+key_pressed.fill(false);
+
+@handle_keydown+=
+if(kit != keymapping.end()) {
+	key_pressed[kit->second] = true;
+}
+
+@handle_keyup=
+auto kit = keymapping.find(event.key.keysym.sym);
+if(kit != keymapping.end()) {
+	key_pressed[kit->second] = false;
+}
+
+@draw_background=
+for(unsigned i=0; i<key_pressed.size(); ++i) {
+	if(key_pressed[i]) {
+		@compute_hit_position
+		@draw_hit_position
+	}
+}
+
+@compute_hit_position=
+Vec2i p;
+p.x = i == 0 ? PLAY_AREA : (i-1)*s->hit->w + s->hit_scratch->w + (int)PLAY_AREA;
+p.y = HEIGHT - s->hit->h - JUDGMENT_OFFSET;
+
+
+@draw_hit_position=
+drawTexture(renderer, p, i == 0 ? s->hit_scratch : s->hit);
+
+@load_skin+=
+SDL_SetTextureBlendMode(s->judgment->tex, SDL_BLENDMODE_BLEND);
+
+@draw_judgment_line=
+{
+Vec2i pos(PLAY_AREA, HEIGHT - JUDGMENT_OFFSET - s->judgment->h);
+drawTexture(renderer, pos, s->judgment);
 }

@@ -46,6 +46,9 @@ std::array<int, (26+10)*(26+10)> wav_to_channel;
 
 float scroll_speed = 1.f; // screen/second
 
+int PLAY_AREA = 100;
+int JUDGMENT_OFFSET = 50;
+
 enum PLAYER_CONTROL
 {
 	P1_SCRATCH = 0,
@@ -66,9 +69,9 @@ std::unordered_map<SDL_Keycode, PLAYER_CONTROL> keymapping {
 	{ SDLK_d, P1_COL2 },
 	{ SDLK_f, P1_COL3 },
 	{ SDLK_SPACE, P1_COL4 },
-	{ SDLK_h, P1_COL5 },
-	{ SDLK_j, P1_COL6 },
-	{ SDLK_k, P1_COL7 }
+	{ SDLK_j, P1_COL5 },
+	{ SDLK_k, P1_COL6 },
+	{ SDLK_l, P1_COL7 }
 };
 
 int perfect_count = 0;
@@ -84,6 +87,8 @@ const float GOOD_WINDOW = 0.105f;
 std::array<std::shared_ptr<Texture>, 10> numbers;
 
 Vec2i ui_pos(450, 10);
+
+std::array<bool, PLAYER_CONTROL_NUM> key_pressed;
 
 
 auto finishPlaying(int channel) -> void 
@@ -144,7 +149,7 @@ auto main(int argc, char* argv[]) -> int
 	Mix_AllocateChannels(32);
 	
 	std::shared_ptr<Map> m = std::make_shared<Map>();
-	std::string input = "C:\\data\\BMSSP2009\\Lapis - SHIKI\\lapis7key.bme";
+	std::string input = "C:\\data\\BMSSP2009\\Absurd Gaff - siromaru\\_abs07_00_bmssp7e.bme";
 	if(!load(input, m)) {
 		return EXIT_FAILURE;
 	}
@@ -184,7 +189,9 @@ auto main(int argc, char* argv[]) -> int
 		return EXIT_FAILURE;
 	}
 	
-	TTF_Font* font = TTF_OpenFont("C:\\data\\font\\NotoSansJP-Regular.otf", 16);
+	SDL_SetTextureBlendMode(s->judgment->tex, SDL_BLENDMODE_BLEND);
+	
+	TTF_Font* font = TTF_OpenFont("C:\\data\\font\\NotoSansJP-Regular.otf", 14);
 	if(!font) {
 		std::cerr << "ERROR(TTF_OpenFont): " << TTF_GetError() << std::endl;
 		return EXIT_FAILURE;
@@ -211,6 +218,8 @@ auto main(int argc, char* argv[]) -> int
 		}
 	}
 	
+	key_pressed.fill(false);
+	
 
 	while(true) {
 		std::array<bool, PLAYER_CONTROL_NUM> keys;
@@ -224,6 +233,17 @@ auto main(int argc, char* argv[]) -> int
 				auto kit = keymapping.find(event.key.keysym.sym);
 				if(kit != keymapping.end()) {
 					keys[kit->second] = true;
+				}
+				
+				if(kit != keymapping.end()) {
+					key_pressed[kit->second] = true;
+				}
+				
+				break; }
+			case SDL_KEYUP: {
+				auto kit = keymapping.find(event.key.keysym.sym);
+				if(kit != keymapping.end()) {
+					key_pressed[kit->second] = false;
 				}
 				
 				break; }
@@ -318,25 +338,36 @@ auto main(int argc, char* argv[]) -> int
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 		SDL_RenderClear(renderer);
 		
+		for(unsigned i=0; i<key_pressed.size(); ++i) {
+			if(key_pressed[i]) {
+				Vec2i p;
+				p.x = i == 0 ? PLAY_AREA : (i-1)*s->hit->w + s->hit_scratch->w + (int)PLAY_AREA;
+				p.y = HEIGHT - s->hit->h - JUDGMENT_OFFSET;
+				
+				
+				drawTexture(renderer, p, i == 0 ? s->hit_scratch : s->hit);
+				
+			}
+		}
+		
 		for(auto it=next.rbegin(); it!=next.rend(); ++it) {
 			auto& note = *it;
-			Vec2f pos;
-			pos.x = (float)note.col * 30.f + 100.f;
-			pos.y = (float)HEIGHT - ((note.time - t)*scroll_speed*(float)HEIGHT);
+			Vec2i pos;
+			pos.x = note.col == 1 ? PLAY_AREA : (note.col-2)*s->note->w + s->scratch->w + PLAY_AREA;
+			pos.y = (int)((float)HEIGHT - ((note.time - t)*scroll_speed*(float)HEIGHT) + 0.5f) - s->note->h/2 - JUDGMENT_OFFSET;
 			
 			if(pos.y < 0.f) {
 				break;
 			}
 			
-			SDL_Rect dst;
-			dst.w = 30;
-			dst.h = 16;
-			dst.x = (int)(pos.x+0.5f);
-			dst.y = (int)(pos.y+0.5f) - dst.h/2;
-			SDL_RenderCopy(renderer, s->note, nullptr, &dst);
+			drawTexture(renderer, pos, note.col == 1 ? s->scratch : ((note.col&1) == 0 ? s->note_odd : s->note));
 			
 		}
 		
+		{
+		Vec2i pos(PLAY_AREA, HEIGHT - JUDGMENT_OFFSET - s->judgment->h);
+		drawTexture(renderer, pos, s->judgment);
+		}
 		{
 		Vec2i p = ui_pos;
 		drawTexture(renderer, p, perfect_text); p.y += perfect_text->h;
@@ -355,12 +386,22 @@ auto main(int argc, char* argv[]) -> int
 		writeNumber(p, bad_count, numbers, renderer); p.y += bad_text->h;
 		writeNumber(p, (int)miss.size() + poor_count, numbers, renderer); /* p.y += poor_text->h;*/
 		}
+		
+		
 		SDL_RenderPresent(renderer);
 		
 	}
 	
 
 	TTF_CloseFont(font);
+	
+	numbers.fill(nullptr);
+	
+	perfect_text.reset();
+	great_text.reset();
+	good_text.reset();
+	bad_text.reset();
+	poor_text.reset();
 	
 	s.reset();
 	

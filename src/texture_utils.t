@@ -41,12 +41,16 @@ auto loadTexture(SDL_Renderer* renderer, const std::string& filename) -> std::sh
 
 @includes+=
 #include <SDL_image.h>
+#include <iostream>
 
 @define_functions+=
 auto loadTexture(SDL_Renderer* renderer, const std::string& filename) -> std::shared_ptr<Texture>
 {
 	auto tex = std::make_shared<Texture>();
 	tex->tex = IMG_LoadTexture(renderer, filename.c_str());
+	if(!tex->tex) {
+		std::cerr << "ERROR(loadTexture): Could not load " << filename << std::endl;
+	}
 	SDL_QueryTexture(tex->tex, NULL, NULL, &tex->w,  &tex->h);
 	return tex;
 }

@@ -248,7 +248,17 @@ note.wav = zz_tonum({message[i], message[i+1]});
 if(channel[0] == '0' && channel[1] == '1') { // BGM
 	note.col = 0;
 } else if(channel[0] == '1') {
-	note.col = (unsigned)(channel[1] - '0');
+	switch(channel[1]) {
+	case '1': note.col = 2; break;
+	case '2': note.col = 3; break;
+	case '3': note.col = 4; break;
+	case '4': note.col = 5; break;
+	case '5': note.col = 6; break;
+	case '6': note.col = 1; break;
+	case '8': note.col = 7; break;
+	case '9': note.col = 8; break;
+	default: break;
+	}
 } else {
 	continue; // otherwise unknown channel, skip
 }

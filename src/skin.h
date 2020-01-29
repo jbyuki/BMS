@@ -10,13 +10,22 @@
 
 #include <SDL_image.h>
 #include <iostream>
+#include "texture_utils.h"
 
 
 struct Skin
 {
-	SDL_Texture* note = nullptr;
+	std::shared_ptr<Texture> note = nullptr;
 	
-	~Skin();
+	std::shared_ptr<Texture> hit = nullptr;
+	
+	std::shared_ptr<Texture> scratch = nullptr;
+	
+	std::shared_ptr<Texture> hit_scratch = nullptr;
+	
+	std::shared_ptr<Texture> note_odd = nullptr;
+	
+	std::shared_ptr<Texture> judgment = nullptr;
 	
 };
 

@@ -1,1 +1,6 @@
 note: note.png
+hit: hit.png
+scratch: scratch.png
+hit-scratch: hit-scratch.png
+note-odd: note-odd.png
+judgment: judgment.png
